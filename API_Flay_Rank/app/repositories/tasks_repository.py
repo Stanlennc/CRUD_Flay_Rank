@@ -47,8 +47,20 @@ def find_by_id(task_id: int) -> dict | None:
         connection.close()
 
 def add(new_task: dict) -> dict:
-    tasks.append(new_task)
-    return new_task
+    connection = _connect()
+    try:
+        cursor = connection.execute(
+            "INSERT INTO tasks (title, done) VALUES (?, ?)",
+            (new_task["title"], int(bool(new_task["done"]))),
+        )
+        connection.commit()
+        return {
+            "id": cursor.lastrowid,
+            "title": new_task["title"],
+            "done": bool(new_task["done"]),
+        }
+    finally:
+        connection.close()
 
 
 def update_task(task_id: int, updated_fields: dict) -> dict | None:

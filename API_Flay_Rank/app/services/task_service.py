@@ -14,14 +14,7 @@ def create_task(data: dict) -> dict:
     title = data.get("title", "").strip()
     if not title:
         raise InvalidTaskError("Title is required")
-    existing_tasks = find_all_tasks()
-    new_id = max((t["id"] for t in existing_tasks), default=0) +1
-    new_task = {
-        "id": new_id,
-        "title": title,
-        "done": False
-    }
-    return add(new_task)
+    return add({"title": title, "done": False})
 
 def update_task_service(task_id: int, updated_task: dict) -> dict | None:
     existing_tasks = find_all_tasks()
