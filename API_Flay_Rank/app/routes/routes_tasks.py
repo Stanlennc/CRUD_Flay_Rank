@@ -19,8 +19,8 @@ def list_tasks_service():
 def get_task(task_id: int):
     task = get_task_by_id(task_id)
     if task is None:
-        raise HTTPException(status_code=404, detail={"error": "Task 99 not found"})
-    return get_task_by_id(task_id)
+        raise HTTPException(status_code=404, detail={"error": "Task not found"})
+    return task
 
 @router.post("/tasks", status_code=201, )
 def create_new_task(new_task: TaskCreate ):

@@ -1,5 +1,7 @@
 
 
+import sqlite3
+from app.database import DB_PATH
 
 SEED_TASKS = [
     {"id": 1, "title": "Code at night", "done": True},
@@ -10,12 +12,39 @@ SEED_TASKS = [
 
 tasks = [task.copy() for task in SEED_TASKS]
 
-def find_all_tasks():
-    return [task.copy() for task in tasks]
+def _connect() -> sqlite3.Connection:
+    connection = sqlite3.connect(DB_PATH)
+    connection.row_factory = sqlite3.Row
+    return connection
+
+def _row_to_task(row: sqlite3.Row)-> dict:
+    return {
+        "id": row["id"],
+        "title": row["title"],
+        "done": bool(row["done"]),
+    }
+
+
+def find_all_tasks() -> list[dict]:
+    connection = _connect()
+    try:
+        rows = connection.execute(
+            "SELECT id, title, done FROM tasks ORDER BY id"
+        ).fetchall()
+        return [_row_to_task(row) for row in rows]
+    finally:
+        connection.close()
 
 def find_by_id(task_id: int) -> dict | None:
-    task = next((t for t in tasks if t["id"] == task_id), None)
-    return task.copy() if task else None
+    connection = _connect()
+    try: 
+        row = connection.execute(
+            "SELECT id, title, done FROM tasks WHERE id = ?",
+            (task_id,),
+    ).fetchone()
+        return _row_to_task(row) if row else None
+    finally:
+        connection.close()
 
 def add(new_task: dict) -> dict:
     tasks.append(new_task)
