@@ -1,5 +1,7 @@
 
 
+import sqlite3
+from app.database import DB_PATH
 
 SEED_TASKS = [
     {"id": 1, "title": "Code at night", "done": True},
@@ -10,28 +12,109 @@ SEED_TASKS = [
 
 tasks = [task.copy() for task in SEED_TASKS]
 
-def find_all_tasks():
-    return [task.copy() for task in tasks]
+def _connect() -> sqlite3.Connection:
+    connection = sqlite3.connect(DB_PATH)
+    connection.row_factory = sqlite3.Row
+    return connection
+
+def _row_to_task(row: sqlite3.Row)-> dict:
+    return {
+        "id": row["id"],
+        "title": row["title"],
+        "done": bool(row["done"]),
+    }
+
+
+def find_all_tasks(done: bool | None = None, search: str | None = None) -> list[dict]:
+    clauses: list[str] = []
+    params: list[int] = []
+    if done is not None:
+        clauses.append("done = ?")
+        params.append(int(done))
+    if search and search.strip():
+        clauses.append("title LIKE ?")
+        params.append(f"%{search.strip()}%")
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    connection = _connect()
+    try:
+        rows = connection.execute(
+            f"SELECT id, title, done FROM tasks {where} ORDER BY title",
+            params,
+        ).fetchall()
+        return [_row_to_task(row) for row in rows]
+    finally:
+        connection.close()
 
 def find_by_id(task_id: int) -> dict | None:
-    task = next((t for t in tasks if t["id"] == task_id), None)
-    return task.copy() if task else None
+    connection = _connect()
+    try: 
+        row = connection.execute(
+            "SELECT id, title, done FROM tasks WHERE id = ?",
+            (task_id,),
+    ).fetchone()
+        return _row_to_task(row) if row else None
+    finally:
+        connection.close()
 
 def add(new_task: dict) -> dict:
-    tasks.append(new_task)
-    return new_task
+    connection = _connect()
+    try:
+        cursor = connection.execute(
+            "INSERT INTO tasks (title, done) VALUES (?, ?)",
+            (new_task["title"], int(bool(new_task["done"]))),
+        )
+        connection.commit()
+        return {
+            "id": cursor.lastrowid,
+            "title": new_task["title"],
+            "done": bool(new_task["done"]),
+        }
+    finally:
+        connection.close()
 
 
 def update_task(task_id: int, updated_fields: dict) -> dict | None:
-    for task in tasks:
-        if task["id"] == task_id:
-            task.update(updated_fields)
-            return task
-    return None
+    connection = _connect()
+    try:
+        cursor = connection.execute(
+            "UPDATE tasks SET title = ?, done = ? WHERE id = ?",
+            (updated_fields["title"], int(bool(updated_fields["done"])), task_id),
+        )
+        connection.commit()
+        if cursor.rowcount ==0:
+            return None
+    finally:
+        connection.close()
+    return find_by_id(task_id)
 
 def delete_task_repository(task_id: int) -> bool:
-    for i, task in enumerate(tasks):
-        if task["id"] == task_id:
-            del tasks[i]
-            return True
-    return False
+   connection = _connect()
+   try:
+        cursor = connection.execute(
+            "DELETE FROM tasks WHERE id = ?",
+            (task_id,),
+        )
+        connection.commit()
+        return cursor.rowcount > 0
+   finally:
+        connection.close()
+
+def count_tasks() -> dict:
+    connection = _connect()
+    try:
+        row = connection.execute(
+            """
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN done = 1 THEN 1 ELSE 0 END) AS done,
+                SUM(CASE WHEN done = 0 THEN 1 ELSE 0 END) AS pending
+            FROM tasks
+            """
+        ).fetchone()
+        return {
+            "total": row["total"],
+            "done": row["done"] or 0,
+            "pending": row["pending"] or 0,
+        }
+    finally:
+        connection.close()
