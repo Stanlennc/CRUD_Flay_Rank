@@ -1,7 +1,7 @@
 
 from fastapi import APIRouter
 from fastapi.exceptions import HTTPException
-from app.services.task_service import list_tasks, get_task_by_id, InvalidTaskError, create_task, update_task_service, delete_task_service
+from app.services.task_service import list_tasks, get_task_by_id, InvalidTaskError, create_task, update_task_service, delete_task_service, get_task_stats
 from pydantic import BaseModel
 from fastapi.responses import Response
 
@@ -12,8 +12,8 @@ class TaskCreate(BaseModel):
 router = APIRouter()
 
 @router.get("/all_tasks")
-def list_tasks_service():
-    return list_tasks()
+def list_tasks_service(done: bool | None = None, search: str | None = None):
+    return list_tasks(done=done, search=search)
 
 @router.get("/tasks/{task_id}")
 def get_task(task_id: int):
@@ -46,3 +46,7 @@ def delete_task(task_id: int):
     if not deleted:
         raise HTTPException(status_code=404, detail="Task not found")
     return Response(status_code=204)
+
+@router.get("/stats")
+def task_stats():
+    return get_task_stats()

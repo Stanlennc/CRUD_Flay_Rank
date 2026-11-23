@@ -1,8 +1,8 @@
-from app.repositories.tasks_repository import find_by_id, find_all_tasks, add, update_task, delete_task_repository
+from app.repositories.tasks_repository import find_by_id, find_all_tasks, add, update_task, delete_task_repository, count_tasks
 
 
-def list_tasks(done: bool | None = None):
-    return find_all_tasks(done=done)
+def list_tasks(done: bool | None = None, search: str | None = None):
+    return find_all_tasks(done=done, search=search)
 
 def get_task_by_id(task_id: int):
     return find_by_id(task_id)
@@ -28,4 +28,7 @@ def update_task_service(task_id: int, updated_task: dict) -> dict | None:
 
 def delete_task_service(task_id: int) -> bool:
     return delete_task_repository(task_id)
+
+def get_task_stats() -> dict:
+    return count_tasks()
            

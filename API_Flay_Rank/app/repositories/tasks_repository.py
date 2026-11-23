@@ -25,12 +25,15 @@ def _row_to_task(row: sqlite3.Row)-> dict:
     }
 
 
-def find_all_tasks(done: bool | None = None) -> list[dict]:
+def find_all_tasks(done: bool | None = None, search: str | None = None) -> list[dict]:
     clauses: list[str] = []
     params: list[int] = []
     if done is not None:
         clauses.append("done = ?")
         params.append(int(done))
+    if search and search.strip():
+        clauses.append("title LIKE ?")
+        params.append(f"%{search.strip()}%")
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     connection = _connect()
     try:
@@ -94,4 +97,24 @@ def delete_task_repository(task_id: int) -> bool:
         connection.commit()
         return cursor.rowcount > 0
    finally:
+        connection.close()
+
+def count_tasks() -> dict:
+    connection = _connect()
+    try:
+        row = connection.execute(
+            """
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN done = 1 THEN 1 ELSE 0 END) AS done,
+                SUM(CASE WHEN done = 0 THEN 1 ELSE 0 END) AS pending
+            FROM tasks
+            """
+        ).fetchone()
+        return {
+            "total": row["total"],
+            "done": row["done"] or 0,
+            "pending": row["pending"] or 0,
+        }
+    finally:
         connection.close()
