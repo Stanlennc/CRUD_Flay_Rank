@@ -1,8 +1,8 @@
 from app.repositories.tasks_repository import find_by_id, find_all_tasks, add, update_task, delete_task_repository
 
 
-def list_tasks():
-    return find_all_tasks()
+def list_tasks(done: bool | None = None):
+    return find_all_tasks(done=done)
 
 def get_task_by_id(task_id: int):
     return find_by_id(task_id)

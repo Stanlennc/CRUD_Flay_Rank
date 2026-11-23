@@ -25,11 +25,18 @@ def _row_to_task(row: sqlite3.Row)-> dict:
     }
 
 
-def find_all_tasks() -> list[dict]:
+def find_all_tasks(done: bool | None = None) -> list[dict]:
+    clauses: list[str] = []
+    params: list[int] = []
+    if done is not None:
+        clauses.append("done = ?")
+        params.append(int(done))
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     connection = _connect()
     try:
         rows = connection.execute(
-            "SELECT id, title, done FROM tasks ORDER BY title"
+            f"SELECT id, title, done FROM tasks {where} ORDER BY title",
+            params,
         ).fetchall()
         return [_row_to_task(row) for row in rows]
     finally:
