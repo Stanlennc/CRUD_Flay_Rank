@@ -29,7 +29,7 @@ def find_all_tasks() -> list[dict]:
     connection = _connect()
     try:
         rows = connection.execute(
-            "SELECT id, title, done FROM tasks ORDER BY id"
+            "SELECT id, title, done FROM tasks ORDER BY title"
         ).fetchall()
         return [_row_to_task(row) for row in rows]
     finally:
