@@ -1,33 +1,34 @@
-import sqlite3
+import os
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent.parent / "tasks.db"
+import psycopg
+import redis
+from dotenv import load_dotenv
+from psycopg.rows import dict_row
 
-SEED_TASKS: list[tuple[int, str, int]] = [
-    (1, "Code at night", 1),
-    (2, "Run at the park", 0),
-    (3, "Have a lunch", 1),
-]
 
-CREATE_TASKS_TABLE = """
-CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    done INTEGER NOT NULL CHECK (done IN (0, 1))
-)
-"""
+ENV_PATH = Path(__file__).resolve().parents[2] / ".env"
+load_dotenv(ENV_PATH)
+
+def connect() -> psycopg.Connection:
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL is not set")
+    return psycopg.connect(database_url, row_factory=dict_row)
+
 
 def init_db() -> None:
-    connection = sqlite3.connect(DB_PATH)
+    connection = connect()
+    connection.close()
+
+def ping_redis() -> str:
+    redis_url = os.environ.get("REDIS_URL")
+    if not redis_url:
+        raise RuntimeError("REDIS_URL is not set")
+    client = redis.from_url(redis_url)
     try:
-        connection.execute(CREATE_TASKS_TABLE)
-        row = connection.execute("SELECT COUNT(*) FROM tasks").fetchone()
-        task_count = int(row[0]) if row else 0
-        if task_count == 0:
-            connection.executemany(
-                "INSERT INTO tasks (id, title, done) VALUES (?, ?, ?)",
-                SEED_TASKS,
-            )
-        connection.commit()
+        if not client.ping():
+            raise RuntimeError("Redis ping failed")
+        return "PONG"
     finally:
-        connection.close()
+        client.close()

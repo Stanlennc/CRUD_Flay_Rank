@@ -1,21 +1,5 @@
+from app.database import connect
 
-
-import sqlite3
-from app.database import DB_PATH
-
-SEED_TASKS = [
-    {"id": 1, "title": "Code at night", "done": True},
-    {"id": 2, "title": "Run at the park", "done": False},
-    {"id": 3, "title": "Have a lunch", "done": True},
-]
-
-
-tasks = [task.copy() for task in SEED_TASKS]
-
-def _connect() -> sqlite3.Connection:
-    connection = sqlite3.connect(DB_PATH)
-    connection.row_factory = sqlite3.Row
-    return connection
 
 def _row_to_task(row: sqlite3.Row)-> dict:
     return {
@@ -29,13 +13,13 @@ def find_all_tasks(done: bool | None = None, search: str | None = None) -> list[
     clauses: list[str] = []
     params: list[int] = []
     if done is not None:
-        clauses.append("done = ?")
-        params.append(int(done))
+        clauses.append("done = %s")
+        params.append((done))
     if search and search.strip():
-        clauses.append("title LIKE ?")
+        clauses.append("title LIKE %s")
         params.append(f"%{search.strip()}%")
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
-    connection = _connect()
+    connection = connect()
     try:
         rows = connection.execute(
             f"SELECT id, title, done FROM tasks {where} ORDER BY title",
@@ -46,10 +30,10 @@ def find_all_tasks(done: bool | None = None, search: str | None = None) -> list[
         connection.close()
 
 def find_by_id(task_id: int) -> dict | None:
-    connection = _connect()
+    connection = connect()
     try: 
         row = connection.execute(
-            "SELECT id, title, done FROM tasks WHERE id = ?",
+            "SELECT id, title, done FROM tasks WHERE id = %s",
             (task_id,),
     ).fetchone()
         return _row_to_task(row) if row else None
@@ -57,28 +41,30 @@ def find_by_id(task_id: int) -> dict | None:
         connection.close()
 
 def add(new_task: dict) -> dict:
-    connection = _connect()
+    connection = connect()
     try:
-        cursor = connection.execute(
-            "INSERT INTO tasks (title, done) VALUES (?, ?)",
-            (new_task["title"], int(bool(new_task["done"]))),
-        )
+        row = connection.execute(
+            """
+            INSERT INTO tasks (title, done)
+            VALUES (%s, %s)
+            RETURNING id, title, done
+            """,
+            (new_task["title"], bool(new_task["done"])),
+        ).fetchone()
         connection.commit()
-        return {
-            "id": cursor.lastrowid,
-            "title": new_task["title"],
-            "done": bool(new_task["done"]),
-        }
+        if row is None:
+            raise RuntimeError("Inserted task was not found")
+        return _row_to_task(row)
     finally:
         connection.close()
 
 
 def update_task(task_id: int, updated_fields: dict) -> dict | None:
-    connection = _connect()
+    connection = connect()
     try:
         cursor = connection.execute(
-            "UPDATE tasks SET title = ?, done = ? WHERE id = ?",
-            (updated_fields["title"], int(bool(updated_fields["done"])), task_id),
+            "UPDATE tasks SET title = %s, done = %s WHERE id = %s",
+            (updated_fields["title"], (bool(updated_fields["done"])), task_id),
         )
         connection.commit()
         if cursor.rowcount ==0:
@@ -88,10 +74,10 @@ def update_task(task_id: int, updated_fields: dict) -> dict | None:
     return find_by_id(task_id)
 
 def delete_task_repository(task_id: int) -> bool:
-   connection = _connect()
+   connection = connect()
    try:
         cursor = connection.execute(
-            "DELETE FROM tasks WHERE id = ?",
+            "DELETE FROM tasks WHERE id = %s",
             (task_id,),
         )
         connection.commit()
@@ -100,14 +86,14 @@ def delete_task_repository(task_id: int) -> bool:
         connection.close()
 
 def count_tasks() -> dict:
-    connection = _connect()
+    connection = connect()
     try:
         row = connection.execute(
             """
             SELECT
                 COUNT(*) AS total,
-                SUM(CASE WHEN done = 1 THEN 1 ELSE 0 END) AS done,
-                SUM(CASE WHEN done = 0 THEN 1 ELSE 0 END) AS pending
+                SUM(CASE WHEN done THEN 1 ELSE 0 END) AS done,
+                SUM(CASE WHEN NOT done THEN 1 ELSE 0 END) AS pending
             FROM tasks
             """
         ).fetchone()
