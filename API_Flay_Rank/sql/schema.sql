@@ -18,3 +18,5 @@ SELECT setval(
     pg_get_serial_sequence('tasks', 'id'),
     COALESCE((SELECT MAX(id) FROM tasks), 1)
 );
+
+CREATE INDEX IF NOT EXISTS idx_tasks_title ON tasks (title);

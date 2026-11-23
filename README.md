@@ -261,12 +261,39 @@ The table is created from `API_Flay_Rank/sql/schema.sql` the first time the volu
 
 Persistence check: create a task, run `docker compose down`, then `docker compose up -d`, then `GET /all_tasks`. `down` removes the containers and keeps the volume. After the restart the same rows were still there, including a task created before the shutdown (`Buy a milk.`).
 
+## 6. Redis and a title index
+
+Redis runs in the same Compose file. `GET /health` pings it and returns `{"status":"ok","redis":"PONG"}`. Task rows stay in Postgres.
+
+The title index was checked on a table seeded with 10000 extra rows. The query was `SELECT id, title, done FROM tasks WHERE title = 'Task 5000'`.
+
+Before `CREATE INDEX idx_tasks_title ON tasks (title)`, Postgres read the whole table:
+
+```text
+Seq Scan on tasks  (cost=0.00..180.05 rows=1 width=14) (actual time=0.435..0.870 rows=1 loops=1)
+  Filter: (title = 'Task 5000'::text)
+  Rows Removed by Filter: 10003
+Planning Time: 0.200 ms
+Execution Time: 0.885 ms
+```
+
+After the index, the same query used it:
+
+```text
+Index Scan using idx_tasks_title on tasks  (cost=0.29..8.30 rows=1 width=14) (actual time=0.037..0.038 rows=1 loops=1)
+  Index Cond: (title = 'Task 5000'::text)
+Planning Time: 0.220 ms
+Execution Time: 0.052 ms
+```
+
+The 10000 seed rows were deleted afterward. The index stayed. `GET /all_tasks` still returns the original tasks.
+
 ## Endpoint summary
 
 | Method | Path | What it does | Success status | Error status |
 |--------|------|---------------|-----------------|---------------|
 | GET | `/` | API info | 200 | — |
-| GET | `/health` | Health check | 200 | — |
+| GET | `/health` | Health check and Redis ping | 200 | — |
 | GET | `/hello` | Sample message | 200 | — |
 | GET | `/all_tasks` | List all tasks | 200 | — |
 | GET | `/tasks/{task_id}` | Get one task | 200 | 404 if not found |
