@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import psycopg
+import redis
 from dotenv import load_dotenv
 from psycopg.rows import dict_row
 
@@ -19,3 +20,15 @@ def connect() -> psycopg.Connection:
 def init_db() -> None:
     connection = connect()
     connection.close()
+
+def ping_redis() -> str:
+    redis_url = os.environ.get("REDIS_URL")
+    if not redis_url:
+        raise RuntimeError("REDIS_URL is not set")
+    client = redis.from_url(redis_url)
+    try:
+        if not client.ping():
+            raise RuntimeError("Redis ping failed")
+        return "PONG"
+    finally:
+        client.close()
