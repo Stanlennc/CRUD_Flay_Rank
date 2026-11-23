@@ -1,4 +1,4 @@
-from app.repositories.tasks_repository import find_by_id, find_all_tasks, add, tasks, update_task, delete_task_repository
+from app.repositories.tasks_repository import find_by_id, find_all_tasks, add, update_task, delete_task_repository
 
 
 def list_tasks():
@@ -17,21 +17,15 @@ def create_task(data: dict) -> dict:
     return add({"title": title, "done": False})
 
 def update_task_service(task_id: int, updated_task: dict) -> dict | None:
-    existing_tasks = find_all_tasks()
-
-    for task in existing_tasks:
-        if task["id"] == task_id:
-            task["title"] = updated_task.get("title", task["title"]).strip()
-            task["done"] = updated_task.get("done", task["done"])
-            return task
-
-    return None  
+    current = find_by_id(task_id)
+    if current is None:
+        return None
+    title = updated_task.get("title", current["title"])
+    if isinstance(title, str):
+        title = title.strip()
+    done = updated_task.get("done", current["done"])
+    return update_task(task_id, {"title": title, "done": done})
 
 def delete_task_service(task_id: int) -> bool:
-    existing_tasks = find_all_tasks()
-    for i, task in enumerate(existing_tasks):
-        if task["id"] == task_id:
-            del existing_tasks[i]
-            return True
-    return False
+    return delete_task_repository(task_id)
            

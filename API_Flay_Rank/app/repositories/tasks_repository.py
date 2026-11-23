@@ -64,15 +64,27 @@ def add(new_task: dict) -> dict:
 
 
 def update_task(task_id: int, updated_fields: dict) -> dict | None:
-    for task in tasks:
-        if task["id"] == task_id:
-            task.update(updated_fields)
-            return task
-    return None
+    connection = _connect()
+    try:
+        cursor = connection.execute(
+            "UPDATE tasks SET title = ?, done = ? WHERE id = ?",
+            (updated_fields["title"], int(bool(updated_fields["done"])), task_id),
+        )
+        connection.commit()
+        if cursor.rowcount ==0:
+            return None
+    finally:
+        connection.close()
+    return find_by_id(task_id)
 
 def delete_task_repository(task_id: int) -> bool:
-    for i, task in enumerate(tasks):
-        if task["id"] == task_id:
-            del tasks[i]
-            return True
-    return False
+   connection = _connect()
+   try:
+        cursor = connection.execute(
+            "DELETE FROM tasks WHERE id = ?",
+            (task_id,),
+        )
+        connection.commit()
+        return cursor.rowcount > 0
+   finally:
+        connection.close()
