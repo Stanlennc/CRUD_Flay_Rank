@@ -1,9 +1,9 @@
 # Task API
 
 
-A small CRUD API for managing a to-do list, built with **FastAPI** and **SQLite**.
+A small CRUD API for managing a to-do list, built with **FastAPI** and **Postgres**.
 
-The endpoints are the same as before. Tasks are stored in a SQLite database file, so they remain after the server restarts.
+The endpoints are the same as before. Tasks are stored in Postgres, running in Docker. `task_service.py` and `routes_tasks.py` were not changed for this swap. Only the repository, the database connection, and the Docker files changed.
 
 ---
 
@@ -244,6 +244,22 @@ SELECT * FROM tasks WHERE done = 1;
 ```
 
 ![SQLite tasks table](14-sqlite-tasks.png)
+
+## 5. Postgres in Docker
+
+From the repository root, start the API and the database together:
+
+```bash
+docker compose up --build
+```
+
+The app is published at `http://localhost:8001`. Inside the Compose network it listens on port 8000. Postgres keeps its data in the named volume `pgdata`.
+
+Copy `.env.example` to `.env`. The real `.env` is gitignored. Inside Docker the app uses `DATABASE_URL` with the host `db`, which is the database service name.
+
+The table is created from `API_Flay_Rank/sql/schema.sql` the first time the volume is empty.
+
+Persistence check: create a task, run `docker compose down`, then `docker compose up -d`, then `GET /all_tasks`. `down` removes the containers and keeps the volume. After the restart the same rows were still there, including a task created before the shutdown (`Buy a milk.`).
 
 ## Endpoint summary
 
