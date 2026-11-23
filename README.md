@@ -1,8 +1,9 @@
 # Task API
 
-A small in-memory CRUD API for managing a to-do list, built with **FastAPI**.
 
-Tasks live only in memory — if you restart the server, the data resets. That's expected for now (no database yet).
+A small CRUD API for managing a to-do list, built with **FastAPI** and **SQLite**.
+
+The endpoints are the same as before. Tasks are stored in a SQLite database file, so they remain after the server restarts.
 
 ---
 
@@ -211,6 +212,38 @@ curl -i -X DELETE http://localhost:8000/tasks/99
 ![DELETE /tasks/99 response - not found](13-delete-task-404.png)
 
 ---
+
+## 4. Database
+
+SQLite was chosen because the whole database is one file on disk. There is no separate database server to install. Python already includes the `sqlite3` library, so `requirements.txt` stays limited to FastAPI and Uvicorn. The API routes did not change. Only the storage behind them changed.
+
+The file is created automatically the first time the application starts:
+
+```
+API_Flay_Rank/tasks.db
+```
+
+`tasks.db` is listed in `.gitignore`. Someone who clones the repository does not receive the file. Starting the server creates it, creates the `tasks` table when it is missing, and inserts the three example tasks only when that table is empty.
+
+Start the project from the repository root:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r API_Flay_Rank/requirements.txt
+cd API_Flay_Rank
+uvicorn app.main:app --reload
+```
+
+The server listens on `http://localhost:8000`. If that port is already in use, start it with `--port 8001` and call `http://localhost:8001`.
+
+This query lists only the completed tasks. `done` is stored as `1` for true and `0` for false:
+
+```sql
+SELECT * FROM tasks WHERE done = 1;
+```
+
+![SQLite tasks table](14-sqlite-tasks.png)
 
 ## Endpoint summary
 
